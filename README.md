@@ -1,13 +1,13 @@
 
 # German Energy Data Platform
 
-An end-to-end data engineering portfolio project that ingests, transforms, tests, and visualizes German electricity generation data.
+An end-to-end data engineering portfolio project that ingests, transforms, tests, and visualizes German electricity generation data using Python, PostgreSQL, dbt, Apache Airflow, Docker, and Metabase.
 
 ## Project Overview
 
-This project demonstrates how to build a local data platform for analyzing electricity generation in Germany.
+This project demonstrates how to build a local batch-processing data platform for analyzing electricity generation in Germany.
 
-It uses public electricity market data from SMARD (Bundesnetzagentur) to analyze:
+It uses publicly available electricity market data from SMARD (Bundesnetzagentur) to analyze:
 
 - Daily electricity generation by energy source
 - Renewable versus non-renewable electricity generation
@@ -21,20 +21,21 @@ The pipeline processes hourly electricity generation data for January 2024.
 | Technology | Purpose |
 |------------|---------|
 | Python | Data ingestion and preprocessing |
-| PostgreSQL | Data storage and analytical views |
+| Pandas | CSV processing and data transformation |
+| PostgreSQL | Raw data storage and analytical views |
 | dbt | SQL transformations and data quality tests |
 | Apache Airflow | Pipeline orchestration |
 | Metabase | Interactive analytics dashboard |
-| Docker Compose | Local service orchestration |
+| Docker Compose | Local infrastructure orchestration |
 | Git & GitHub | Version control and portfolio publishing |
 
 ## Data Pipeline
 
-1. **Extract:** Load hourly electricity generation data from a SMARD CSV export.
-2. **Load:** Ingest the data into PostgreSQL using Python.
+1. **Extract:** Read hourly electricity generation data from a SMARD CSV export.
+2. **Load:** Ingest the data into PostgreSQL using Python and Psycopg.
 3. **Transform:** Build staging and analytics models with dbt.
-4. **Test:** Validate source data and transformation results with dbt tests.
-5. **Orchestrate:** Run ingestion and dbt transformations through Apache Airflow.
+4. **Test:** Validate data quality and transformation results using dbt tests.
+5. **Orchestrate:** Execute ingestion and dbt transformations through Apache Airflow.
 6. **Visualize:** Explore electricity generation trends in Metabase.
 
 ## Dataset
@@ -53,11 +54,11 @@ The pipeline processes hourly electricity generation data for January 2024.
 
 **Daily renewable share records:** 31
 
-The project retains missing observations so data quality issues can be identified rather than silently discarded.
+The project retains missing observations so that data quality issues can be identified rather than silently discarded.
 
 ## Architecture
 
-The platform follows a batch-processing architecture using Python, PostgreSQL, dbt, Apache Airflow, and Metabase.
+The platform follows a batch-processing architecture.
 
 ```mermaid
 flowchart TD
@@ -78,15 +79,15 @@ flowchart TD
     E --> G
     F --> G
 
-    H -. "Orchestrates ingestion" .-> B
-    H -. "Runs dbt build and tests" .-> D
+    H -.-> B
+    H -.-> D
 ```
 
 ### Pipeline Components
 
 **Data ingestion:** A Python script reads the downloaded SMARD CSV file, transforms it into a normalized format, and loads records into PostgreSQL. The ingestion uses upserts to support repeatable runs.
 
-**Data storage:** PostgreSQL stores the raw electricity generation observations.
+**Data storage:** PostgreSQL stores hourly electricity generation observations in the `raw.electricity_generation` table.
 
 **Data transformation:** dbt builds staging and analytics models in the `dbt_dev` schema.
 
@@ -94,8 +95,7 @@ flowchart TD
 
 **Orchestration:** Apache Airflow executes ingestion followed by `dbt build` through the `german_energy_pipeline` DAG.
 
-**Visualization:** Metabase queries the dbt analytics models to display electricity generation and renewable energy trends.
-
+**Visualization:** Metabase queries dbt analytics models to display electricity generation and renewable energy trends.
 
 ## Project Structure
 
@@ -104,10 +104,15 @@ german-energy-data-platform/
 |
 |-- airflow/
 |   |-- dags/
-|   |   `-- energy_pipeline.py       # Airflow pipeline DAG
+|   |   `-- energy_pipeline.py
 |   |-- dbt/
-|   |   `-- profiles.yml             # dbt profile for Docker
-|   `-- Dockerfile                   # Custom Airflow image
+|   |   `-- profiles.yml
+|   `-- Dockerfile
+|
+|-- docker/
+|   `-- postgres/
+|       `-- init/
+|           `-- 01-create-airflow-db.sql
 |
 |-- energy_dbt/
 |   |-- models/
@@ -124,45 +129,50 @@ german-energy-data-platform/
 |   `-- dbt_project.yml
 |
 |-- ingestion/
-|   `-- load_generation.py           # CSV ingestion script
+|   |-- load_generation.py
+|   `-- test_connection.py
 |
-|-- sql/                              # Initial SQL setup scripts
+|-- sql/
+|   |-- 01_create_schemas.sql
+|   |-- 02_create_generation_table.sql
+|   |-- 03_data_quality_checks.sql
+|   |-- 04_create_staging_view.sql
+|   |-- 05_create_daily_generation_mart.sql
+|   `-- 06_create_renewable_share_mart.sql
+|
 |-- data/
-|   `-- raw/                          # Downloaded CSV (Git-ignored)
+|   `-- raw/
 |
-|-- docker-compose.yaml               # Local infrastructure
-|-- requirements.txt                  # Python dependencies
-|-- .env.example                      # Example environment variables
-|-- .gitignore                        # Git exclusion rules
-`-- README.md                         # Project documentation
+|-- docker-compose.yaml
+|-- requirements.txt
+|-- .env.example
+|-- .gitignore
+`-- README.md
 ```
 
-The `data/raw/` directory contains the downloaded SMARD CSV file and is excluded from Git to avoid committing source data.
+The `data/raw/` directory contains the downloaded SMARD CSV file and is excluded from Git.
 
-Generated files such as logs, Python virtual environments, and dbt build artifacts are also excluded.
-
+Generated logs, Python virtual environments, and dbt build artifacts are also excluded.
 
 ## Getting Started
 
 ### Prerequisites
 
-Install the following tools before running the project:
+Install the following tools:
 
 - Docker Desktop with Docker Compose
 - Python 3.12
 - Git
-- VS Code (recommended)
+- Visual Studio Code (recommended)
 
-The instructions below use Windows PowerShell.
+The following instructions use Windows PowerShell.
 
 ### 1. Clone the Repository
 
 ```powershell
-git clone https://github.com/YOUR_USERNAME/german-energy-data-platform.git
+git clone https://github.com/Datawith-Ramakrishna/german-energy-data-platform.git
 cd german-energy-data-platform
 ```
-
-Replace `YOUR_USERNAME` with the GitHub username once the repository is published.
 
 ### 2. Configure Environment Variables
 
@@ -192,32 +202,15 @@ py -3.12 -m venv .venv
 Install the Python dependencies:
 
 ```powershell
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
+### 4. Start PostgreSQL
 
-### 4. Start the Infrastructure
-
-On a fresh installation, start PostgreSQL first:
+Start PostgreSQL first:
 
 ```powershell
 docker compose up -d postgres
-```
-
-Wait until PostgreSQL reports a healthy status:
-
-```powershell
-docker compose ps
-```
-
-During initialization of a new database volume, PostgreSQL automatically runs the SQL scripts in `docker/postgres/init/`.
-
-These scripts create the separate `airflow_db` database required for Apache Airflow.
-
-Next, start the remaining services:
-
-```powershell
-docker compose up -d --build
 ```
 
 Check the container status:
@@ -226,19 +219,57 @@ Check the container status:
 docker compose ps
 ```
 
-Expected services:
+Wait until PostgreSQL reports a healthy status.
 
-- PostgreSQL — healthy
-- Metabase — running
-- Airflow API Server — running
-- Airflow Scheduler — running
-- Airflow DAG Processor — running
+On a new PostgreSQL volume, Docker executes the initialization scripts in `docker/postgres/init/`.
 
-The `airflow-init` service may show as exited successfully after initializing the Airflow metadata database.
+The included initialization script creates the separate `airflow_db` database required by Apache Airflow.
 
-**Important:** PostgreSQL initialization scripts run only when the database volume is created for the first time. Do not delete existing Docker volumes to repeat initialization, as this would remove stored data.
+### 5. Initialize the Raw Database Tables
 
-### 5. Access the Applications
+Before running ingestion for the first time, create the required schemas and raw electricity generation table.
+
+Run the following commands from the project root:
+
+```powershell
+Get-Content .\sql\01_create_schemas.sql | docker exec -i energy_postgres psql -U energy_user -d energy_db -v ON_ERROR_STOP=1
+```
+
+```powershell
+Get-Content .\sql\02_create_generation_table.sql | docker exec -i energy_postgres psql -U energy_user -d energy_db -v ON_ERROR_STOP=1
+```
+
+These scripts prepare PostgreSQL for the ingestion pipeline.
+
+**Note:** These commands assume the default database and username used by this project. If you change them in `.env`, update the commands accordingly.
+
+### 6. Start the Remaining Infrastructure
+
+Run:
+
+```powershell
+docker compose up -d --build
+```
+
+Check the running containers:
+
+```powershell
+docker compose ps
+```
+
+Expected services include:
+
+- PostgreSQL
+- Metabase
+- Airflow API Server
+- Airflow Scheduler
+- Airflow DAG Processor
+
+The `airflow-init` service may exit successfully after initializing the Airflow metadata database.
+
+**Important:** PostgreSQL initialization scripts run only when a database volume is first created. Do not delete existing Docker volumes unless you intend to remove the stored data.
+
+### 7. Access the Applications
 
 | Application | URL |
 |-------------|-----|
@@ -248,12 +279,9 @@ The `airflow-init` service may show as exited successfully after initializing th
 
 These services run locally using Docker Compose.
 
-**Note:** On a fresh installation, the Airflow metadata database must be initialized before the Airflow services can start successfully. The required initialization procedure is documented below.
-
-
 ## Downloading the Dataset
 
-This project uses publicly available German electricity generation data from **SMARD**, operated by the Bundesnetzagentur (German Federal Network Agency).
+This project uses publicly available German electricity generation data from **SMARD**, operated by the Bundesnetzagentur.
 
 **Official website:** https://www.smard.de/en
 
@@ -267,7 +295,7 @@ This project uses publicly available German electricity generation data from **S
 | Resolution | Hourly |
 | Format | CSV |
 | Energy sources | 12 |
-| Expected raw records after ingestion | 8,928 |
+| Expected raw records | 8,928 |
 
 ### Download Instructions
 
@@ -278,31 +306,35 @@ This project uses publicly available German electricity generation data from **S
 5. Select **hourly resolution**.
 6. Export the data as a CSV file.
 
-Save the downloaded file in:
+Save the downloaded file at:
 
 ```text
 data/raw/Actual_generation_202401010000_202402010000_Hour.csv
 ```
 
-Create the `data/raw/` directory if it does not already exist.
+If the directory does not exist, create it:
+
+```powershell
+New-Item -ItemType Directory -Force -Path data/raw
+```
 
 The filename matters because the ingestion script expects this file.
 
 ### Data Quality Notes
 
-The dataset includes some missing generation values. The pipeline retains missing observations and records them in the dbt analytics models.
+The dataset contains some missing generation values.
 
-The raw CSV is excluded from Git using `.gitignore`, so users must download it separately.
+The pipeline retains missing observations and records them in the dbt analytics models.
 
-
+The raw CSV is excluded from Git, so users must download it separately.
 
 ## Running the Data Pipeline
 
-After downloading the SMARD CSV file and starting the Docker services, you can execute the data pipeline.
+After downloading the SMARD CSV and starting the Docker services, execute the pipeline using either Python or Apache Airflow.
 
 ### Option 1: Run Python Ingestion Manually
 
-Activate your Python virtual environment:
+Activate the Python virtual environment:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
@@ -316,7 +348,7 @@ python ingestion/load_generation.py
 
 The script reads the hourly electricity generation CSV and loads the data into PostgreSQL.
 
-It uses an upsert strategy, allowing repeated executions without creating duplicate records.
+It uses an upsert strategy to avoid creating duplicate records during repeated runs.
 
 ### Verify the Ingested Data
 
@@ -336,7 +368,7 @@ Expected result:
 
 ### Option 2: Run the Automated Airflow Pipeline
 
-Open the Airflow interface:
+Open Apache Airflow:
 
 http://localhost:8080
 
@@ -349,13 +381,13 @@ Trigger the DAG manually.
 The pipeline executes two tasks in sequence:
 
 1. `ingest_generation` — loads the SMARD CSV into PostgreSQL.
-2. `dbt_build` — runs dbt models and data quality tests.
+2. `dbt_build` — runs dbt transformations and data quality tests.
 
 Both tasks should complete successfully.
 
 ### Verify the dbt Analytics Models
 
-Run:
+Check the daily generation model:
 
 ```powershell
 docker exec energy_postgres psql -U energy_user -d energy_db -c "SELECT COUNT(*) FROM dbt_dev.daily_generation_by_source;"
@@ -363,7 +395,7 @@ docker exec energy_postgres psql -U energy_user -d energy_db -c "SELECT COUNT(*)
 
 Expected result: **372 rows**.
 
-Then run:
+Check the renewable share model:
 
 ```powershell
 docker exec energy_postgres psql -U energy_user -d energy_db -c "SELECT COUNT(*) FROM dbt_dev.daily_renewable_share;"
@@ -371,19 +403,117 @@ docker exec energy_postgres psql -U energy_user -d energy_db -c "SELECT COUNT(*)
 
 Expected result: **31 rows**.
 
-### View the Analytics Dashboard
+## Data Quality and Testing
 
-Open Metabase:
+The project uses dbt to validate the transformed electricity generation data.
+
+Tests include:
+
+- Source and model constraints
+- Required values and uniqueness checks
+- Relationships between model fields where defined
+- Validation of renewable share percentages
+
+The project also contains a custom SQL test:
+
+```text
+energy_dbt/tests/assert_renewable_share_range.sql
+```
+
+This test checks that calculated renewable energy percentages remain within the expected range.
+
+The pipeline runs dbt tests as part of:
+
+```bash
+dbt build
+```
+
+A successful pipeline run confirms that the transformations and their associated tests have completed without errors.
+
+## Analytics Dashboard
+
+The project uses Metabase to visualize the transformed electricity generation data.
+
+Open:
 
 http://localhost:3000
 
-Connect Metabase to PostgreSQL using the database credentials from `.env`.
+Connect Metabase to PostgreSQL using the credentials configured in `.env`.
 
-The analytics models are available in the `dbt_dev` schema.
+For Metabase running inside Docker, use:
 
-The dashboard includes:
+| Setting | Value |
+|---------|-------|
+| Database type | PostgreSQL |
+| Host | postgres |
+| Port | 5432 |
+| Database | energy_db |
+| Username | Value of `POSTGRES_USER` |
+| Password | Value of `POSTGRES_PASSWORD` |
 
-- Daily Renewable Energy Share — dbt
-- Daily Electricity Generation by Source — dbt
+The dbt analytics models are available in the `dbt_dev` schema.
 
-**Note:** On a fresh installation, the Metabase dashboard must be created manually because the saved dashboard configuration is not currently exported as part of the repository.
+### Dashboard Visualizations
+
+**Daily Renewable Energy Share — dbt**
+
+Displays the daily percentage of electricity generation from renewable sources.
+
+Model:
+
+```sql
+SELECT *
+FROM dbt_dev.daily_renewable_share
+ORDER BY generation_date;
+```
+
+**Daily Electricity Generation by Source — dbt**
+
+Displays daily electricity generation grouped by energy source.
+
+Model:
+
+```sql
+SELECT *
+FROM dbt_dev.daily_generation_by_source
+ORDER BY generation_date, energy_source;
+```
+
+**Note:** On a fresh installation, the Metabase dashboard must be created manually because the saved dashboard configuration is not currently exported with the repository.
+
+## Project Highlights
+
+- End-to-end batch data pipeline using open German electricity market data
+- Python-based CSV ingestion into PostgreSQL
+- Repeatable ingestion using upsert operations
+- SQL transformations using dbt staging and mart models
+- Automated data quality testing with dbt
+- Workflow orchestration using Apache Airflow
+- Containerized infrastructure using Docker Compose
+- Interactive electricity market analytics using Metabase
+- Environment-variable-based configuration
+- Version-controlled project structure on GitHub
+
+## Future Improvements
+
+Potential enhancements include:
+
+- Automating data extraction from SMARD
+- Supporting incremental ingestion of new electricity generation data
+- Adding automated CI checks using GitHub Actions
+- Expanding the analysis to additional months and years
+- Adding monitoring and failure notifications
+- Exporting Metabase dashboard configuration for reproducible deployments
+- Adding dashboard screenshots to the repository
+
+## Author
+
+**Ramakrishna**
+
+GitHub: https://github.com/Datawith-Ramakrishna
+
+## Data Source
+
+SMARD — Bundesnetzagentur
+
+https://www.smard.de/en
