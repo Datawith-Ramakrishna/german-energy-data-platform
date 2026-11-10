@@ -1,0 +1,29 @@
+
+version: 2
+
+sources:
+  - name: energy_raw
+    description: Raw German electricity generation data from SMARD.
+    database: energy_db
+    schema: raw
+
+    tables:
+      - name: electricity_generation
+        description: Hourly electricity generation by energy source.
+        columns:
+          - name: id
+            data_tests:
+              - unique
+              - not_null
+
+          - name: interval_start
+            data_tests:
+              - not_null
+
+          - name: interval_end
+            data_tests:
+              - not_null
+
+          - name: energy_source
+            data_tests:
+              - not_null

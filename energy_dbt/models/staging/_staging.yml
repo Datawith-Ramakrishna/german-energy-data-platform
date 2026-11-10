@@ -1,0 +1,79 @@
+
+version: 2
+
+models:
+  - name: stg_electricity_generation
+    description: >
+      Cleaned hourly German electricity generation data
+      sourced from SMARD (Bundesnetzagentur).
+      Standardizes energy source names, extracts date
+      and hour information, and classifies electricity
+      sources as renewable or non-renewable.
+      Missing generation values are preserved as NULL.
+
+    columns:
+      - name: generation_id
+        description: Unique identifier for each raw observation.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: interval_start
+        description: Start timestamp of the hourly generation interval.
+        data_tests:
+          - not_null
+
+      - name: interval_end
+        description: End timestamp of the hourly generation interval.
+        data_tests:
+          - not_null
+
+      - name: generation_date
+        description: Calendar date extracted from interval_start.
+
+      - name: generation_hour
+        description: Hour of day extracted from interval_start, from 0 to 23.
+
+      - name: energy_source
+        description: >
+          Standardized electricity generation source
+          represented in lowercase snake_case.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - biomass
+                  - fossil_gas
+                  - hard_coal
+                  - hydropower
+                  - hydro_pumped_storage
+                  - lignite
+                  - nuclear
+                  - other_conventional
+                  - other_renewable
+                  - photovoltaics
+                  - wind_offshore
+                  - wind_onshore
+
+      - name: generation_mwh
+        description: >
+          Hourly electricity generation in megawatt-hours.
+          NULL indicates a missing source observation.
+
+      - name: is_renewable
+        description: >
+          Boolean classification indicating whether
+          the energy source is renewable.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+                quote: false
+
+      - name: source_file
+        description: Original SMARD CSV filename.
+
+      - name: ingested_at
+        description: Timestamp when the observation was loaded into PostgreSQL.

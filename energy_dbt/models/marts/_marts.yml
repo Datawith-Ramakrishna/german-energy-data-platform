@@ -1,0 +1,99 @@
+
+version: 2
+
+models:
+
+  - name: daily_generation_by_source
+    description: >
+      Daily German electricity generation aggregated by
+      energy source. Includes observation counts to
+      monitor data completeness and distinguish missing
+      measurements from actual zero generation.
+
+    columns:
+      - name: generation_date
+        description: Calendar date of electricity generation.
+        data_tests:
+          - not_null
+
+      - name: energy_source
+        description: Standardized electricity generation source.
+        data_tests:
+          - not_null
+
+      - name: is_renewable
+        description: >
+          Boolean indicating whether the electricity
+          source is classified as renewable.
+
+      - name: total_generation_mwh
+        description: >
+          Total daily electricity generation in MWh.
+          NULL is permitted only when all hourly
+          observations for this source and date are missing.
+        data_tests:
+          - not_null:
+              config:
+                where: "valid_observations > 0"
+
+      - name: hourly_observations
+        description: Number of hourly records for this source and date.
+        data_tests:
+          - not_null
+
+      - name: valid_observations
+        description: Number of hourly records with non-NULL generation values.
+
+      - name: missing_observations
+        description: Number of hourly records with missing generation values.
+        data_tests:
+          - not_null
+
+  - name: daily_renewable_share
+    description: >
+      Daily overview of German electricity generation and
+      the percentage generated from renewable energy sources.
+      Aggregates generation across all energy sources and
+      calculates renewable share using available generation
+      observations. Missing source values are not treated
+      as zero.
+
+    columns:
+      - name: generation_date
+        description: Calendar date of electricity generation.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: total_generation_mwh
+        description: >
+          Total electricity generation in megawatt-hours
+          across all energy sources for the day.
+        data_tests:
+          - not_null
+
+      - name: renewable_generation_mwh
+        description: >
+          Total daily electricity generation from renewable
+          sources, measured in megawatt-hours.
+        data_tests:
+          - not_null
+
+      - name: non_renewable_generation_mwh
+        description: >
+          Total daily electricity generation from
+          non-renewable sources in megawatt-hours.
+
+      - name: renewable_share_pct
+        description: >
+          Percentage of daily electricity generation
+          supplied by renewable energy sources.
+          Expected range is 0 to 100.
+        data_tests:
+          - not_null
+
+      - name: missing_observations
+        description: >
+          Number of hourly source observations with
+          missing generation values on this date.
+

@@ -1,0 +1,38 @@
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Raw downloaded data
+data/raw/
+
+# Generated logs
+logs/
+airflow/logs/
+*.log
+
+# Airflow runtime files
+airflow/standalone_admin_password.txt
+airflow/airflow.cfg
+airflow/simple_auth_manager_passwords.json.generated
+
+# dbt generated artifacts
+**/target/
+**/dbt_packages/
+**/logs/
+
+# Editor and OS files
+.vscode/
+.DS_Store
+Thumbs.db
+
+
+# Local dbt user configuration
+**/.user.yml
